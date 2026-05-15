@@ -218,4 +218,113 @@
   window.addEventListener('load', navmenuScrollspy);
   document.addEventListener('scroll', navmenuScrollspy);
 
+  /**
+   * Hero Spotlight Trail Effect
+   */
+  const hero = document.querySelector('#hero');
+  const canvas = document.querySelector('#hero-canvas');
+  if (hero && canvas) {
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.src = 'assets/img/hero-bg.jpg';
+
+    let mouse = { x: -1000, y: -1000, lastX: -1000, lastY: -1000, active: false };
+    let points = [];
+
+    function resize() {
+      canvas.width = hero.offsetWidth;
+      canvas.height = hero.offsetHeight;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    hero.addEventListener('mousemove', (e) => {
+      const rect = hero.getBoundingClientRect();
+      mouse.lastX = mouse.x;
+      mouse.lastY = mouse.y;
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+      mouse.active = true;
+      
+      // Add points to trail
+      points.push({
+        x: mouse.x,
+        y: mouse.y,
+        age: 0
+      });
+    });
+
+    hero.addEventListener('mouseleave', () => {
+      mouse.active = false;
+    });
+
+    function drawImageCover() {
+      const canvasRatio = canvas.width / canvas.height;
+      const imgRatio = img.width / img.height;
+      let drawWidth, drawHeight, offsetX, offsetY;
+
+      if (imgRatio > canvasRatio) {
+        drawHeight = canvas.height;
+        drawWidth = canvas.height * imgRatio;
+        offsetX = (canvas.width - drawWidth) / 2;
+        offsetY = 0;
+      } else {
+        drawWidth = canvas.width;
+        drawHeight = canvas.width / imgRatio;
+        offsetX = 0;
+        offsetY = (canvas.height - drawHeight) / 2;
+      }
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+    }
+
+    function render() {
+      if (img.complete) {
+        // 1. Draw original image with high opacity to keep it visible
+        // We use a small globalAlpha when redrawing to "heal" the erased parts slowly
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 0.08; // This controls how fast the trail disappears (~1-2 seconds)
+        drawImageCover();
+
+        // 2. Erase the parts where the mouse is/was
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 20; // Soften the edges
+        ctx.shadowColor = 'black';
+        
+        // Filter and update points
+        points = points.filter(p => {
+          p.age += 1;
+          if (p.age > 60) return false; 
+          
+          const size = 160 * (1 - p.age / 60);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, size / 2, 0, Math.PI * 2);
+          ctx.fill();
+          return true;
+        });
+
+        // Draw current path line for smoothness
+        if (mouse.active && mouse.lastX !== -1000) {
+          ctx.beginPath();
+          ctx.lineWidth = 80;
+          ctx.lineCap = 'round';
+          ctx.moveTo(mouse.lastX, mouse.lastY);
+          ctx.lineTo(mouse.x, mouse.y);
+          ctx.stroke();
+        }
+        
+        ctx.shadowBlur = 0; // Reset shadow for next frame
+      }
+      requestAnimationFrame(render);
+    }
+
+    img.onload = () => {
+      // Initial fill
+      ctx.globalAlpha = 1;
+      drawImageCover();
+      render();
+    };
+  }
+
 })();
